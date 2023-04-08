@@ -9,7 +9,6 @@ app = Flask(__name__)
 
 @app.route('/', methods=[ 'GET','POST'])
 def hello_world():
-    print("jołek")
     today = datetime.date.today()
     if request.method =='POST':
         selectDateString = request.form.get('selected_date')
