@@ -16,7 +16,10 @@ def flashscore(path='https://www.flashscore.com', deltaDate =0):
     browser = webdriver.Chrome("C:/Users/dawid/PycharmProjects/FlaskProject/chromedriver.exe", options=op)
     browser.get(path)
     #browser.implicitly_wait(7)
-    browser.find_element(By.XPATH, "//*[contains(text(), 'I Accept')]").click()
+    #browser.find_element(By.XPATH, "//*[contains(text(), 'I Accept')]").click()
+    WebDriverWait(browser, 10).until(
+        EC.element_to_be_clickable((By.XPATH, '//*[contains(text(), "I Accept")]'))
+    ).click()
     #browser.implicitly_wait(10)
     time.sleep(3)
     browser.find_element(By.XPATH, "//*[@id='calendarMenu']").click()
@@ -47,15 +50,15 @@ def flashscore(path='https://www.flashscore.com', deltaDate =0):
         matches[counter].append([])
         matches[counter].append([])
         matches[counter].append(0)
-        licznik = 0
+        mod_ = 0
         for odd in odds:
-            if licznik % 3 == 0:
+            if mod_ % 3 == 0:
                 matches[counter][1].append(odd.get_attribute("title"))
-            elif licznik % 3 == 1:
+            elif mod_ % 3 == 1:
                 matches[counter][2].append(odd.get_attribute("title"))
             else:
                 matches[counter][3].append(odd.get_attribute("title"))
-            licznik += 1
+            mod_ += 1
         counter += 1
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
