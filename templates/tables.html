@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Matches</title>
+</head>
+<body>
+    <h1>Matches</h1>
+    <form action="/some_url" method="Post" target="_self">
+    <input type="submit" name="gen_csv" value="Generate CSV"></form>
+    <div id="tabela"></div>
+        {{ tabela | safe }}
+
+</body>
+</html>
