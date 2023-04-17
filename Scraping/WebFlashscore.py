@@ -12,9 +12,11 @@ import re
 
 def flashscore(path='https://www.flashscore.com', deltaDate =0, amount=5):
     op = webdriver.ChromeOptions()
-    op.add_argument('headless')
+    op.add_argument('--disable-images')
+    #op.add_argument('headless')
+    op.add_argument('--disable-javascript')
     op.add_argument("window-size=1920,1080")  #1920x1080
-    browser = webdriver.Chrome("C:/Users/dawid/PycharmProjects/FlaskProject/chromedriver.exe", options=op)
+    browser = webdriver.Chrome("chromedriver.exe", options=op)
     browser.get(path)
     #browser.find_element(By.XPATH, "//*[contains(text(), 'I Accept')]").click()
     WebDriverWait(browser, 10).until(
