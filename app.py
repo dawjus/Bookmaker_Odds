@@ -1,11 +1,12 @@
-from flask import Flask, render_template_string, request, render_template, Response, redirect, session
+from flask import Flask,g, render_template_string, request, render_template, Response, redirect, session
 import pandas as pd
-from Scraping import WebFlashscore
+from Scraping import scrapFlashscore
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 import datetime
-from werkzeug.utils import secure_filename
-
+from models import Match, engine
+from sqlalchemy.orm import sessionmaker
+import threading
 
 app = Flask(__name__)
 
@@ -14,6 +15,7 @@ ALLOWED_EXTENSIONS = {'csv'}
 
 @app.route('/', methods=[ 'GET','POST'])
 def start():
+    print_matches()
     if request.method =='POST':
         selected_date = request.form.get('selected_date')
         sport = request.form.get('sport')
@@ -37,11 +39,11 @@ def matches():
     selectDate = datetime.datetime.strptime(selectDateString, '%Y-%m-%d').date()
     delta = (selectDate - today).days
     if 'Soccer' == sport: #request.form:
-        df = WebFlashscore.flashscore('https://www.flashscore.com', delta,  amount)
+        df = scrapFlashscore.flashscore('https://www.flashscore.com',selectDate, delta, amount)
     elif 'Basketball' == sport:
-        df = WebFlashscore.flashscore('https://www.flashscore.com/basketball/', delta,amount)
+        df = scrapFlashscore.flashscore('https://www.flashscore.com/basketball/',selectDate, delta, amount)
     elif 'Handball' == sport:
-        df = WebFlashscore.flashscore('https://www.flashscore.com/handball/', delta, amount)
+        df = scrapFlashscore.flashscore('https://www.flashscore.com/handball/', selectDate,delta, amount)
     else:
         df = 0
     session['df'] = df.to_json(orient='records')
@@ -53,6 +55,18 @@ def matches():
     return render_template('tables.html', tabela=html_string, tytul='d1')
 
 
+def print_matches():
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    matches = session.query(Match).all()
+
+    for match in matches:
+        print(f"ID: {match.id}")
+        print(f"Team 1: {match.name}")
+        print(f"Team 2: {match.home}")
+        print(f"Date: {match.draw}")
+        print("---")
 
 
 @app.route('/some_url', methods=['POST'])

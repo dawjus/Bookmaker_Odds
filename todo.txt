@@ -1,0 +1,4 @@
+1. Connect to Database
+2. Add threads
+2. cleaning codes, adding classes
+3. function optimization,

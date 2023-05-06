@@ -6,14 +6,18 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from datetime import datetime
 import pandas as pd
+from Scraping.cleaningData import stringCut, probability
+from models import Match, engine
+from sqlalchemy.orm import sessionmaker
 import time
-import math
-import re
 
-def flashscore(path='https://www.flashscore.com', deltaDate =0, amount=5):
+
+def flashscore(path,selectDate, deltaDate =0, amount=5):
+    Session = sessionmaker(bind=engine)
+    session = Session()
     op = webdriver.ChromeOptions()
     op.add_argument('--disable-images')
-    #op.add_argument('headless')
+    op.add_argument('headless')
     op.add_argument('--disable-javascript')
     op.add_argument("window-size=1920,1080")  #1920x1080
     browser = webdriver.Chrome("chromedriver.exe", options=op)
@@ -24,14 +28,11 @@ def flashscore(path='https://www.flashscore.com', deltaDate =0, amount=5):
     ).click()
     WebDriverWait(browser,10).until(
         EC.element_to_be_clickable((By.XPATH, "//*[@id='calendarMenu']"))).click()
-    #browser.find_element(By.XPATH, "//*[@id='calendarMenu']").click()
-    #browser.implicitly_wait(10)
+
     WebDriverWait(browser, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME, "calendar__listItem"))
     )
     browser.find_elements(By.CLASS_NAME, "calendar__listItem")[deltaDate+7].click()
-    #browser.implicitly_wait(10)
-   # time.sleep(5)
     browser.switch_to.window(browser.window_handles[-1])
     WebDriverWait(browser,10).until(
         EC.presence_of_element_located((By.XPATH,
@@ -44,11 +45,13 @@ def flashscore(path='https://www.flashscore.com', deltaDate =0, amount=5):
     for element in elements:
         if counter >= amount:
             break
+        id_match = element.get_attribute("id")
+        if session.query(Match).filter_by(id_match=id_match).count()>0:
+            continue
         browser.execute_script("arguments[0].click();", element)
         browser.implicitly_wait(10)
         browser.switch_to.window(browser.window_handles[-1])
         browser.implicitly_wait(10)
-        #Odds_click = browser.find_element(By.XPATH, "//*[contains(text(), 'Odds')]")
         Odds_click = browser.find_elements(By.XPATH, "//*[contains(text(), 'Odds')]")
         if len(Odds_click) > 1:
             browser.execute_script("arguments[0].click();", Odds_click[0])
@@ -58,7 +61,8 @@ def flashscore(path='https://www.flashscore.com', deltaDate =0, amount=5):
             continue
         #browser.execute_script("arguments[0].click();", Odds_click)
         odds = browser.find_elements(By.CLASS_NAME, 'oddsCell__odd')
-        matches.append([browser.title, [], [], [], 0])
+        #matches.append([browser.title, [], [], [], 0])
+        matches.append([browser.title,[], [], [], 0, id_match])
         mod_ = 0
         for odd in odds:
             if mod_ % 3 == 0:
@@ -68,33 +72,28 @@ def flashscore(path='https://www.flashscore.com', deltaDate =0, amount=5):
             else:
                 matches[counter][3].append(odd.get_attribute("title"))
             mod_ += 1
+        stringCut(matches[counter])
+        probability(matches[counter])
+        match = Match(id_match=str(matches[counter][5]),name=str(matches[counter][0]),home=str(matches[counter][1]),
+                      draw=str(matches[counter][2]), away=str(matches[counter][3]), probability=str(matches[counter][4]), date=selectDate)
+        session.add(match)
         counter += 1
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
     browser.close()
-    stringCut(matches)
-    probability(matches)
-    df = pd.DataFrame(matches, columns=['Match', 'Home', ' Draw', 'Away', 'Probabilities'])
-    return df
+    session.commit()
+
+    dbmatch = session.query(Match).filter_by(date = selectDate)
+
+    #df = pd.DataFrame(matches, columns=['Match', 'Home', ' Draw', 'Away', 'Probabilities'])
+    return createDataFrame(dbmatch)
 
 
-def stringCut(arr):
-    for i in range(len(arr)):
-        for j in range(1, 4):
-            arr[i][j] = list(filter(lambda x: x != '', arr[i][j]))
-            for k in range(len(arr[i][j])):
-                arr[i][j][k] = re.findall(r'\d+\.\d+', arr[i][j][k])
-                if len(arr[i][j][k]) >1:
-                    arr[i][j][k] = float(arr[i][j][k][1])
-                else:
-                    arr[i][j][k] =-1
-
-def probability(arr):
-    for i in range(len(arr)):
-        probab = 0
-        for j in range(1,4):
-            if len(arr[i][j]) != 0:
-                probab += 1/(max(arr[i][j]))
-        arr[i][4] = str(math.floor(probab*100)) + str(" %")
-
-
+def createDataFrame(database):
+    data = {'Match': [match.name for match in database],
+          'home': [match.home for match in database],
+          'away': [match.away for match in database],
+          'draw': [match.draw for match in database],
+          'probability': [match.probability for match in database]
+          }
+    return pd.DataFrame(data)
