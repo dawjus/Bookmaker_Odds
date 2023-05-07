@@ -1,21 +1,28 @@
 from flask import Flask,g, render_template_string, request, render_template, Response, redirect, session
 import pandas as pd
-from Scraping import scrapFlashscore
+from Scraping import scrapFlashscore, updateDataBase
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 import datetime
-from models import Match, engine
+from models import Football, engine
 from sqlalchemy.orm import sessionmaker
 import threading
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 app = Flask(__name__)
+executor = ThreadPoolExecutor()
+scraping_thread = None
 
 app.secret_key = 'supersecretkey'
 ALLOWED_EXTENSIONS = {'csv'}
 
 @app.route('/', methods=[ 'GET','POST'])
 def start():
-    print_matches()
+    global scraping_thread
+    if scraping_thread is None:
+        scraping_thread = executor.submit(background_task)
+    #print_matches()
     if request.method =='POST':
         selected_date = request.form.get('selected_date')
         sport = request.form.get('sport')
@@ -38,7 +45,7 @@ def matches():
     amount = int(session.get('amount'))
     selectDate = datetime.datetime.strptime(selectDateString, '%Y-%m-%d').date()
     delta = (selectDate - today).days
-    if 'Soccer' == sport: #request.form:
+    '''if 'Soccer' == sport: #request.form:
         df = scrapFlashscore.flashscore('https://www.flashscore.com',selectDate, delta, amount)
     elif 'Basketball' == sport:
         df = scrapFlashscore.flashscore('https://www.flashscore.com/basketball/',selectDate, delta, amount)
@@ -47,6 +54,11 @@ def matches():
     else:
         df = 0
     session['df'] = df.to_json(orient='records')
+    '''
+    Session = sessionmaker(bind=engine)
+    sesja = Session()
+    database = sesja.query(Football).filter_by(date = selectDate)
+    df = scrapFlashscore.getData(database, amount)
     html_string = df.to_html(classes='table table-striped', index=False)
     html_string = html_string.replace('<table',
                                           '<table style="background-color: lightblue; border: 2px solid black;"')
@@ -59,7 +71,7 @@ def print_matches():
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    matches = session.query(Match).all()
+    matches = session.query(Football).all()
 
     for match in matches:
         print(f"ID: {match.id}")
@@ -76,10 +88,17 @@ def some_function():
     df.to_csv('data.csv', index=False)
     return 'Data saved to CSV'
 
+
+def background_task():
+    today = datetime.date.today()
+    for i in range(7):
+        print(i)
+        print('----------------')
+        selectDate = today + datetime.timedelta(days=i)
+        updateDataBase.flashscore('https://www.flashscore.com',selectDate, i, 10)
+
+
 if __name__ == '__main__':
+    background_thread = threading.Thread(target=background_task)
+    background_thread.start()
     app.run(debug=True)
-
-
-
-
-

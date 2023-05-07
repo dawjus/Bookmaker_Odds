@@ -1,4 +1,3 @@
-1. Connect to Database
-2. Add threads
+1. code improvement removing comment garbage etc
 2. cleaning codes, adding classes
-3. function optimization,
+3. function optimization, updating database 
