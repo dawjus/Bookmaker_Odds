@@ -1,10 +1,10 @@
-from flask import Flask,g, render_template_string, request, render_template, Response, redirect, session
+from flask import Flask, g, render_template_string, request, render_template, Response, redirect, session
 import pandas as pd
 from Scraping import scrapFlashscore, updateDataBase
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 import datetime
-from models import Football, engine
+from models import Football, engine, Basketball
 from sqlalchemy.orm import sessionmaker
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -45,26 +45,20 @@ def matches():
     amount = int(session.get('amount'))
     selectDate = datetime.datetime.strptime(selectDateString, '%Y-%m-%d').date()
     delta = (selectDate - today).days
-    '''if 'Soccer' == sport: #request.form:
-        df = scrapFlashscore.flashscore('https://www.flashscore.com',selectDate, delta, amount)
-    elif 'Basketball' == sport:
-        df = scrapFlashscore.flashscore('https://www.flashscore.com/basketball/',selectDate, delta, amount)
-    elif 'Handball' == sport:
-        df = scrapFlashscore.flashscore('https://www.flashscore.com/handball/', selectDate,delta, amount)
-    else:
-        df = 0
-    session['df'] = df.to_json(orient='records')
-    '''
+#    df = scrapFlashscore.flashscore('https://www.flashscore.com/',selectDate, delta, amount, sport)
     Session = sessionmaker(bind=engine)
     sesja = Session()
-    database = sesja.query(Football).filter_by(date = selectDate)
-    df = scrapFlashscore.getData(database, amount)
-    html_string = df.to_html(classes='table table-striped', index=False)
+    sports_dict = {'Football': Football, 'Basketball': Basketball}
+    database = sesja.query(sports_dict[sport]).filter_by(date = selectDate)
+    df = scrapFlashscore.createDataFrame(database, amount)
+
+    session['df'] = df.to_json(orient='records')
+    html_string = df.to_html(classes='table table-striped', index=False,  escape=False, render_links=True)
     html_string = html_string.replace('<table',
                                           '<table style="background-color: lightblue; border: 2px solid black;"')
     html_string = html_string.replace('<tbody>', '<tbody style="background-color: white;">')
-
-    return render_template('tables.html', tabela=html_string, tytul='d1')
+    html_string = html_string.replace('<td>{{ row[\'URL\'] }}</td>', '<td><a href="{{ row[\'URL\'] }}">{{ row[\'URL\'] }}</a></td>')
+    return render_template('tables.html', tabela=html_string, tytul='d1',)
 
 
 def print_matches():
@@ -91,11 +85,12 @@ def some_function():
 
 def background_task():
     today = datetime.date.today()
-    for i in range(7):
+    for i in range(1,7):
         print(i)
         print('----------------')
         selectDate = today + datetime.timedelta(days=i)
-        updateDataBase.flashscore('https://www.flashscore.com',selectDate, i, 10)
+        scrapFlashscore.flashscore('https://www.flashscore.com/',selectDate, i, 20, 'Football')
+
 
 
 if __name__ == '__main__':

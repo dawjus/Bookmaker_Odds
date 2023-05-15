@@ -1,3 +1,5 @@
+0. fix bugs
 1. code improvement removing comment garbage etc
 2. cleaning codes, adding classes
-3. function optimization, updating database 
+3. function optimization, updating database
+4. more event (handicap, over/under etc)

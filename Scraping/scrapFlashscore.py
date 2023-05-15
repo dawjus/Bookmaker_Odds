@@ -6,13 +6,17 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from datetime import datetime
 import pandas as pd
-from Scraping.cleaningData import stringCut, probability
+from Scraping.cleaning_data import stringCut, probability
 from models import Football, engine
 from sqlalchemy.orm import sessionmaker
 import time
+from Sports.football import Football
+from Sports.basketball import Basketball
 
-'''
-def flashscore(path,selectDate, deltaDate =0, amount=5):
+
+def flashscore(path,selectDate, deltaDate =0, amount=5, sport = 'football'):
+
+    sports_dict = {'Football': Football, 'Basketball': Basketball}
     Session = sessionmaker(bind=engine)
     session = Session()
     op = webdriver.ChromeOptions()
@@ -21,7 +25,8 @@ def flashscore(path,selectDate, deltaDate =0, amount=5):
     op.add_argument('--disable-javascript')
     op.add_argument("window-size=1920,1080")  #1920x1080
     browser = webdriver.Chrome("chromedriver.exe", options=op)
-    browser.get(path)
+    #browser = webdriver.Chrome(ChromeDriverManager().install())
+    browser.get(path + sport.lower())
     #browser.find_element(By.XPATH, "//*[contains(text(), 'I Accept')]").click()
     WebDriverWait(browser, 10).until(
         EC.element_to_be_clickable((By.XPATH, '//*[contains(text(), "I Accept")]'))
@@ -46,8 +51,8 @@ def flashscore(path,selectDate, deltaDate =0, amount=5):
         if counter >= amount:
             break
         id_match = element.get_attribute("id")
-        if session.query(Match).filter_by(id_match=id_match).count()>0:
-            continue
+        match = sports_dict[sport](id_match)
+        match.date = selectDate
         browser.execute_script("arguments[0].click();", element)
         browser.implicitly_wait(10)
         browser.switch_to.window(browser.window_handles[-1])
@@ -62,8 +67,17 @@ def flashscore(path,selectDate, deltaDate =0, amount=5):
         #browser.execute_script("arguments[0].click();", Odds_click)
         odds = browser.find_elements(By.CLASS_NAME, 'oddsCell__odd')
         #matches.append([browser.title, [], [], [], 0])
-        matches.append([browser.title,[], [], [], 0, id_match])
+        #matches.append([browser.title,[], [], [], 0, id_match])
+        match.match = browser.title
         mod_ = 0
+        for odd in odds:
+            match.sequence_on_page(mod_, odd.get_attribute("title") )
+            mod_ +=1
+        match.convert_string_odds_to_array()
+        match.set_probabilities()
+        session.add(match.add_to_database())
+        matches.append(match)
+        '''
         for odd in odds:
             if mod_ % 3 == 0:
                 matches[counter][1].append(odd.get_attribute("title"))
@@ -72,22 +86,25 @@ def flashscore(path,selectDate, deltaDate =0, amount=5):
             else:
                 matches[counter][3].append(odd.get_attribute("title"))
             mod_ += 1
+        
         stringCut(matches[counter])
         probability(matches[counter])
-        match = Match(id_match=str(matches[counter][5]),name=str(matches[counter][0]),home=str(matches[counter][1]),
-                      draw=str(matches[counter][2]), away=str(matches[counter][3]), probability=str(matches[counter][4]), date=selectDate)
-        session.add(match)
+       # match = Match(id_match=str(matches[counter][5]),name=str(matches[counter][0]),home=str(matches[counter][1]),
+       #               draw=str(matches[counter][2]), away=str(matches[counter][3]), probability=str(matches[counter][4]), date=selectDate)
+    #    session.add(match)
+        '''
         counter += 1
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
     browser.close()
     session.commit()
 
-    dbmatch = session.query(Match).filter_by(date = selectDate)
-
+    #dbmatch = session.query(Match).filter_by(date = selectDate)
+    df = sports_dict[sport].createDataFrame(matches)
     #df = pd.DataFrame(matches, columns=['Match', 'Home', ' Draw', 'Away', 'Probabilities'])
-    return createDataFrame(dbmatch)
-'''
+    #return createDataFrame(dbmatch)
+    return df
+
 
 def createDataFrame(database, selectDate):
     database = database.filter_by(date = selectDate)
@@ -98,12 +115,10 @@ def createDataFrame(database, selectDate):
           'probability': [match.probability for match in database]
           }
     return pd.DataFrame(data)
-
-def getData(database, amount):
-    data = {'Match': [match.name for match in database],
-          'home': [match.home for match in database],
-          'away': [match.away for match in database],
-          'draw': [match.draw for match in database],
-          'probability': [match.probability for match in database]
+'''
+def getData(database, sport):
+    sports_dict = {'Football': Football, 'Basketball': Basketball}
+    sports_dict[sport].createDataFrame()
           }
     return pd.DataFrame(data).head(amount)
+'''

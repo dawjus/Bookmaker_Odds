@@ -2,7 +2,7 @@ from selenium.webdriver.common.by import By
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from Scraping.cleaningData import stringCut, probability
+from Scraping.cleaning_data import stringCut, probability
 from models import Football, Handball, engine
 from sqlalchemy.orm import sessionmaker
 import datetime

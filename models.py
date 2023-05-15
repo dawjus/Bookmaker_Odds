@@ -27,5 +27,14 @@ class Handball(Base):
     date = Column(Date)
     probability = Column(String(100))
 
+class Basketball(Base):
+    __tablename__ = 'basketball'
+    id = Column(Integer, primary_key=True)
+    id_match = Column(String(100))
+    name =Column(String(100))
+    home = Column(String(100))
+    away = Column(String(100))
+    date = Column(Date)
+    probability = Column(String(100))
 
 Base.metadata.create_all(engine)
