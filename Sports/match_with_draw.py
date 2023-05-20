@@ -1,4 +1,7 @@
 from Sports.match import Match
+from sqlalchemy.orm import sessionmaker
+from models import engine
+import pandas as pd
 
 class MatchWithDraw(Match):
     def __init__(self, id):
@@ -15,13 +18,23 @@ class MatchWithDraw(Match):
     def set_probabilities(self):
         super().set_probabilities()
         try:
-            self.probabilities += self._count_probabilities_one_event(self.draw_odds)
+            self.probabilities += round(self._count_probabilities_one_event(self.draw_odds),4)
         except TypeError:
             self.probabilities = 'Too little information about this match'
 
     @staticmethod
-    def createDataFrame(matches):
-        df = Match.createDataFrame(matches)
-        draw_column = [match.draw_odds for match in matches]
-        df.insert(2, 'Draw', draw_column)
-        return df
+    def create_data_frame(db, amount, selectDate):
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        database = session.query(db).filter_by(date=selectDate)
+        data = {'Match': [match.name for match in database],
+                'Home': [match.home for match in database],
+                'Draw': [match.draw for match in database],
+                'Away': [match.away for match in database],
+                'Probability': [match.probability for match in database],
+                'URL': [match.id_match[4:] for match in database]
+                }
+        df = pd.DataFrame(data)
+        df['URL'] = df['URL'].apply(lambda x: f'<a href="https://www.flashscore.com/match/{x}">{"Match Details"}</a>')
+        return df.sort_values('Probability').head(amount)
+

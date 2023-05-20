@@ -1,11 +1,12 @@
 from sqlalchemy import create_engine, Column, Integer, String, Date
 from sqlalchemy.ext.declarative import declarative_base
-
+from sqlalchemy.pool import StaticPool
 
 Base = declarative_base()
-engine = create_engine('sqlite:///matches.db')
+engine = create_engine('sqlite:///matches.db', connect_args={'check_same_thread': False},
+    poolclass=StaticPool)
 
-class Football(Base):
+class Football_db(Base):
     __tablename__ = 'football'
     id = Column(Integer, primary_key=True)
     id_match = Column(String(100))
@@ -16,7 +17,7 @@ class Football(Base):
     date = Column(Date)
     probability = Column(String(100))
 
-class Handball(Base):
+class Handball_db(Base):
     __tablename__ = 'handball'
     id = Column(Integer, primary_key=True)
     id_match = Column(String(100))
@@ -27,7 +28,7 @@ class Handball(Base):
     date = Column(Date)
     probability = Column(String(100))
 
-class Basketball(Base):
+class Basketball_db(Base):
     __tablename__ = 'basketball'
     id = Column(Integer, primary_key=True)
     id_match = Column(String(100))

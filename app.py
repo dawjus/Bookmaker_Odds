@@ -1,10 +1,11 @@
 from flask import Flask, g, render_template_string, request, render_template, Response, redirect, session
 import pandas as pd
-from Scraping import scrapFlashscore, updateDataBase
+from Scraping import scrapFlashscore, update_database
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 import datetime
-from models import Football, engine, Basketball
+from models import Football_db, engine, Basketball_db
+from Sports.enum_sports import SportEnum
 from sqlalchemy.orm import sessionmaker
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -22,7 +23,6 @@ def start():
     global scraping_thread
     if scraping_thread is None:
         scraping_thread = executor.submit(background_task)
-    #print_matches()
     if request.method =='POST':
         selected_date = request.form.get('selected_date')
         sport = request.form.get('sport')
@@ -39,18 +39,17 @@ def start():
 
 @app.route('/matches', methods=['GET','POST'])
 def matches():
-    today = datetime.date.today()
-    sport = session.get('sport')
+    sport_val = session.get('sport')
     selectDateString = session.get('selected_date')
     amount = int(session.get('amount'))
     selectDate = datetime.datetime.strptime(selectDateString, '%Y-%m-%d').date()
-    delta = (selectDate - today).days
-#    df = scrapFlashscore.flashscore('https://www.flashscore.com/',selectDate, delta, amount, sport)
-    Session = sessionmaker(bind=engine)
-    sesja = Session()
-    sports_dict = {'Football': Football, 'Basketball': Basketball}
-    database = sesja.query(sports_dict[sport]).filter_by(date = selectDate)
-    df = scrapFlashscore.createDataFrame(database, amount)
+    db, sport_object = None, None
+    for sport in SportEnum:
+        if sport.value == sport_val:
+            db = sport.db
+            sport_object = sport.sport_object
+            break
+    df = sport_object.create_data_frame(db, amount, selectDate)
 
     session['df'] = df.to_json(orient='records')
     html_string = df.to_html(classes='table table-striped', index=False,  escape=False, render_links=True)
@@ -59,20 +58,6 @@ def matches():
     html_string = html_string.replace('<tbody>', '<tbody style="background-color: white;">')
     html_string = html_string.replace('<td>{{ row[\'URL\'] }}</td>', '<td><a href="{{ row[\'URL\'] }}">{{ row[\'URL\'] }}</a></td>')
     return render_template('tables.html', tabela=html_string, tytul='d1',)
-
-
-def print_matches():
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    matches = session.query(Football).all()
-
-    for match in matches:
-        print(f"ID: {match.id}")
-        print(f"Team 1: {match.name}")
-        print(f"Team 2: {match.home}")
-        print(f"Date: {match.draw}")
-        print("---")
 
 
 @app.route('/some_url', methods=['POST'])
@@ -84,14 +69,20 @@ def some_function():
 
 
 def background_task():
-    today = datetime.date.today()
-    for i in range(1,7):
-        print(i)
-        print('----------------')
-        selectDate = today + datetime.timedelta(days=i)
-        scrapFlashscore.flashscore('https://www.flashscore.com/',selectDate, i, 20, 'Football')
+    while(True):
+        #update_database.delete_old_matches()
+        update_database.upload_matches()
 
-
+'''
+    while(True):
+        today = datetime.date.today()
+        for i in range(1,7):
+            print(i)
+            print('----------------')
+            selectDate = today + datetime.timedelta(days=i)
+            scrapFlashscore.open_page_to_list_matches('https://www.flashscore.com/', selectDate, i, 10, 'Football')
+            scrapFlashscore.open_page_to_list_matches('https://www.flashscore.com/', selectDate, i, 10 , 'Basketball')
+    '''
 
 if __name__ == '__main__':
     background_thread = threading.Thread(target=background_task)

@@ -1,3 +1,4 @@
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 from selenium.common.exceptions import ElementClickInterceptedException, ElementNotInteractableException, NoSuchElementException, TimeoutException, WebDriverException
@@ -6,116 +7,121 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from datetime import datetime
 import pandas as pd
-from Scraping.cleaning_data import stringCut, probability
-from models import Football, engine
+from Sports.enum_sports import  SportEnum
+from models import Football_db, engine
 from sqlalchemy.orm import sessionmaker
 import time
 from Sports.football import Football
 from Sports.basketball import Basketball
 
 
-def flashscore(path,selectDate, deltaDate =0, amount=5, sport = 'football'):
+def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
 
-    sports_dict = {'Football': Football, 'Basketball': Basketball}
     Session = sessionmaker(bind=engine)
     session = Session()
     op = webdriver.ChromeOptions()
     op.add_argument('--disable-images')
     op.add_argument('headless')
     op.add_argument('--disable-javascript')
-    op.add_argument("window-size=1920,1080")  #1920x1080
+    op.add_argument("window-size=1920,1080")
     browser = webdriver.Chrome("chromedriver.exe", options=op)
-    #browser = webdriver.Chrome(ChromeDriverManager().install())
     browser.get(path + sport.lower())
-    #browser.find_element(By.XPATH, "//*[contains(text(), 'I Accept')]").click()
-    WebDriverWait(browser, 10).until(
-        EC.element_to_be_clickable((By.XPATH, '//*[contains(text(), "I Accept")]'))
-    ).click()
-    WebDriverWait(browser,10).until(
-        EC.element_to_be_clickable((By.XPATH, "//*[@id='calendarMenu']"))).click()
 
-    WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "calendar__listItem"))
-    )
-    browser.find_elements(By.CLASS_NAME, "calendar__listItem")[deltaDate+7].click()
-    browser.switch_to.window(browser.window_handles[-1])
-    WebDriverWait(browser,10).until(
-        EC.presence_of_element_located((By.XPATH,
-                                     '//div[@class="event__match event__match--scheduled event__match--twoLine"]')))
-    elements = browser.find_elements(By.XPATH,
-                                     '//div[@class="event__match event__match--scheduled event__match--twoLine"]')
+    elements = []
+    try:
+        WebDriverWait(browser, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '//*[contains(text(), "I Accept")]'))
+            ).click()
+        WebDriverWait(browser,10).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[@id='calendarMenu']"))).click()
+        WebDriverWait(browser, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "calendar__listItem"))
+            )
 
+        browser.find_elements(By.CLASS_NAME, "calendar__listItem")[deltaDate+7].click()
+
+        browser.switch_to.window(browser.window_handles[-1])
+        WebDriverWait(browser,10).until(
+                EC.presence_of_element_located((By.XPATH,
+                                             '//div[@class="event__match event__match--scheduled event__match--twoLine"]')))
+        elements = browser.find_elements(By.XPATH,
+                                             '//div[@class="event__match event__match--scheduled event__match--twoLine"]')
+    except:
+        print('Failed to load matches')
     counter = 0
-    matches = []  # (name, [courses home], [courses away], [courses draw])
+    #matches = []
     for element in elements:
         if counter >= amount:
             break
-        id_match = element.get_attribute("id")
-        match = sports_dict[sport](id_match)
+        match, id_match = None, None
+        try:
+            id_match = element.get_attribute("id")
+        except:
+            print('Failed to get id matches')
+
+        for val in SportEnum:
+            if sport ==val.value:
+                match = val.sport_object(id_match)
+                db = val.getdb
+                session.query(db).filter(id_match == db.id_match).delete(synchronize_session=False)
         match.date = selectDate
-        browser.execute_script("arguments[0].click();", element)
+        try:
+            browser.execute_script("arguments[0].click();", element)
+        except:
+            print('The item cannot be clicked')
         browser.implicitly_wait(10)
         browser.switch_to.window(browser.window_handles[-1])
         browser.implicitly_wait(10)
-        Odds_click = browser.find_elements(By.XPATH, "//*[contains(text(), 'Odds')]")
+
+        Odds_click = 0
+        try:
+            Odds_click = browser.find_elements(By.XPATH, "//*[contains(text(), 'Odds')]")
+        except:
+            print('There is no odds button')
+
         if len(Odds_click) > 1:
-            browser.execute_script("arguments[0].click();", Odds_click[0])
+            try:
+                browser.execute_script("arguments[0].click();", Odds_click[0])
+            except:
+                print('Script cannot be executed')
         else:
-            browser.close()
             browser.switch_to.window(browser.window_handles[0])
             continue
-        #browser.execute_script("arguments[0].click();", Odds_click)
         odds = browser.find_elements(By.CLASS_NAME, 'oddsCell__odd')
-        #matches.append([browser.title, [], [], [], 0])
-        #matches.append([browser.title,[], [], [], 0, id_match])
-        match.match = browser.title
+        match.match_name = browser.title
         mod_ = 0
         for odd in odds:
-            match.sequence_on_page(mod_, odd.get_attribute("title") )
+            match.sequence_on_page(mod_, odd.text)
             mod_ +=1
-        match.convert_string_odds_to_array()
+        #match.convert_string_odds_to_array()
         match.set_probabilities()
         session.add(match.add_to_database())
-        matches.append(match)
-        '''
-        for odd in odds:
-            if mod_ % 3 == 0:
-                matches[counter][1].append(odd.get_attribute("title"))
-            elif mod_ % 3 == 1:
-                matches[counter][2].append(odd.get_attribute("title"))
-            else:
-                matches[counter][3].append(odd.get_attribute("title"))
-            mod_ += 1
-        
-        stringCut(matches[counter])
-        probability(matches[counter])
-       # match = Match(id_match=str(matches[counter][5]),name=str(matches[counter][0]),home=str(matches[counter][1]),
-       #               draw=str(matches[counter][2]), away=str(matches[counter][3]), probability=str(matches[counter][4]), date=selectDate)
-    #    session.add(match)
-        '''
+       # matches.append(match)
+
         counter += 1
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
     browser.close()
     session.commit()
-
-    #dbmatch = session.query(Match).filter_by(date = selectDate)
-    df = sports_dict[sport].createDataFrame(matches)
-    #df = pd.DataFrame(matches, columns=['Match', 'Home', ' Draw', 'Away', 'Probabilities'])
-    #return createDataFrame(dbmatch)
-    return df
+    #df = sports_dict[sport].createDataFrame(matches)
 
 
-def createDataFrame(database, selectDate):
-    database = database.filter_by(date = selectDate)
+def complete_parameters_match(sport):
+    pass
+
+'''
+def createDataFrame(db, amount, selectDate):
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    database = session.query(db).filter_by(date = selectDate)
     data = {'Match': [match.name for match in database],
           'home': [match.home for match in database],
           'away': [match.away for match in database],
-          'draw': [match.draw for match in database],
+          #'draw': [match.draw for match in database],
           'probability': [match.probability for match in database]
           }
-    return pd.DataFrame(data)
-'''
+    return pd.DataFrame(data).sort_values('probability').head(amount)
+
 def getData(database, sport):
     sports_dict = {'Football': Football, 'Basketball': Basketball}
     sports_dict[sport].createDataFrame()
