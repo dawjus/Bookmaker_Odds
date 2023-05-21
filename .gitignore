@@ -1,6 +1,7 @@
 # Default ignored files
 .idea/
 __pycache__/
-data.csv
 matches.db
 matches.db-journal
+chromedriver.exe
+LICENSE.chromedriver

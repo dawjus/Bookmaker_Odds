@@ -17,6 +17,15 @@ class Football_db(Base):
     date = Column(Date)
     probability = Column(String(100))
 
+    def __init__(self, id_match, name, home, draw, away, date, probability):
+        self.id_match = id_match
+        self.name = name
+        self.home = home
+        self.draw = draw
+        self.away = away
+        self.date = date
+        self.probability = probability
+
 class Handball_db(Base):
     __tablename__ = 'handball'
     id = Column(Integer, primary_key=True)
@@ -28,6 +37,15 @@ class Handball_db(Base):
     date = Column(Date)
     probability = Column(String(100))
 
+    def __init__(self, id_match, name, home, draw, away, date, probability):
+        self.id_match = id_match
+        self.name = name
+        self.home = home
+        self.draw = draw
+        self.away = away
+        self.date = date
+        self.probability = probability
+
 class Basketball_db(Base):
     __tablename__ = 'basketball'
     id = Column(Integer, primary_key=True)
@@ -37,5 +55,13 @@ class Basketball_db(Base):
     away = Column(String(100))
     date = Column(Date)
     probability = Column(String(100))
+
+    def __init__(self, id_match, name, home, away, date, probability):
+        self.id_match = id_match
+        self.name = name
+        self.home = home
+        self.away = away
+        self.date = date
+        self.probability = probability
 
 Base.metadata.create_all(engine)

@@ -1,19 +1,10 @@
-from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium import webdriver
-from selenium.common.exceptions import ElementClickInterceptedException, ElementNotInteractableException, NoSuchElementException, TimeoutException, WebDriverException
-from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from datetime import datetime
-import pandas as pd
 from Sports.enum_sports import  SportEnum
-from models import Football_db, engine
+from models import  engine
 from sqlalchemy.orm import sessionmaker
-import time
-from Sports.football import Football
-from Sports.basketball import Basketball
-
 
 def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
 
@@ -28,13 +19,13 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
     elements = []
     try:
         WebDriverWait(browser, 10).until(
-                EC.element_to_be_clickable((By.XPATH, '//*[contains(text(), "I Accept")]'))
-            ).click()
+                EC.element_to_be_clickable((By.XPATH, '//*[contains(text(), "I Accept")]'))).click()
+
         WebDriverWait(browser,10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[@id='calendarMenu']"))).click()
+
         WebDriverWait(browser, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "calendar__listItem"))
-            )
+                EC.presence_of_element_located((By.CLASS_NAME, "calendar__listItem")))
 
         browser.find_elements(By.CLASS_NAME, "calendar__listItem")[deltaDate+7].click()
 
@@ -47,8 +38,6 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
     except:
         print('Failed to load matches')
     counter = 0
-    print(len(elements))
-    #matches = []
     for element in elements:
         if counter >= amount:
             break
@@ -100,28 +89,3 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
         browser.switch_to.window(browser.window_handles[0])
         session.commit()
     browser.close()
-
-
-
-def complete_parameters_match(sport):
-    pass
-
-'''
-def createDataFrame(db, amount, selectDate):
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    database = session.query(db).filter_by(date = selectDate)
-    data = {'Match': [match.name for match in database],
-          'home': [match.home for match in database],
-          'away': [match.away for match in database],
-          #'draw': [match.draw for match in database],
-          'probability': [match.probability for match in database]
-          }
-    return pd.DataFrame(data).sort_values('probability').head(amount)
-
-def getData(database, sport):
-    sports_dict = {'Football': Football, 'Basketball': Basketball}
-    sports_dict[sport].createDataFrame()
-          }
-    return pd.DataFrame(data).head(amount)
-'''

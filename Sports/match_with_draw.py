@@ -18,7 +18,7 @@ class MatchWithDraw(Match):
     def set_probabilities(self):
         super().set_probabilities()
         try:
-            self.probabilities += round(self._count_probabilities_one_event(self.draw_odds),4)
+            self.probabilities = round(self.probabilities +self._count_probabilities_one_event(self.draw_odds),4)
         except TypeError:
             self.probabilities = 'Too little information about this match'
 

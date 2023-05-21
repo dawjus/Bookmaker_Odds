@@ -1,15 +1,13 @@
 from flask import Flask, g, render_template_string, request, render_template, Response, redirect, session
 import pandas as pd
-from Scraping import scrapFlashscore, update_database
-from selenium.webdriver.common.by import By
-from selenium import webdriver
+from Scraping import update_database
 import datetime
 from models import Football_db, engine, Basketball_db
 from Sports.enum_sports import SportEnum
 from sqlalchemy.orm import sessionmaker
 import threading
 from concurrent.futures import ThreadPoolExecutor
-import time
+from Scraping.sure_bets import sure_bets
 
 app = Flask(__name__)
 executor = ThreadPoolExecutor()
@@ -23,14 +21,19 @@ def start():
     global scraping_thread
     if scraping_thread is None:
         scraping_thread = executor.submit(background_task)
-    if request.method =='POST':
-        selected_date = request.form.get('selected_date')
-        sport = request.form.get('sport')
-        amount = request.form.get('selected_amount')
-        session['selected_date'] = selected_date
-        session['sport'] = sport
-        session['amount'] = amount
-        return redirect('/matches')
+
+    if request.method == 'POST':
+        if 'sport' in request.form:
+            selected_date = request.form.get('selected_date')
+            sport = request.form.get('sport')
+            amount = request.form.get('selected_amount')
+            session['selected_date'] = selected_date
+            session['sport'] = sport
+            session['amount'] = amount
+            return redirect('/matches')
+        elif 'surebets' in request.form:
+            return redirect('/surebets')
+
     today = datetime.date.today().strftime('%Y-%m-%d')
     max_date = (datetime.date.today() + datetime.timedelta(days=7)).strftime('%Y-%m-%d')
     return render_template('temp.html', today=today, max_date=max_date)
@@ -60,29 +63,22 @@ def matches():
     return render_template('tables.html', tabela=html_string, tytul='d1',)
 
 
-@app.route('/some_url', methods=['POST'])
-def some_function():
-    json_data  = session.get('df')
-    df = pd.read_json(json_data)
-    df.to_csv('data.csv', index=False)
-    return 'Data saved to CSV'
+@app.route('/surebets', methods=['GET', 'POST'])
+def surebets():
+    df = sure_bets()
+    html_string = df.to_html(classes='table table-striped', index=False,  escape=False, render_links=True)
+    html_string = html_string.replace('<table',
+                                          '<table style="background-color: lightblue; border: 2px solid black;"')
+    html_string = html_string.replace('<tbody>', '<tbody style="background-color: white;">')
+    html_string = html_string.replace('<td>{{ row[\'URL\'] }}</td>', '<td><a href="{{ row[\'URL\'] }}">{{ row[\'URL\'] }}</a></td>')
+    return render_template('tables.html', tabela=html_string, tytul='d1',)
 
 
 def background_task():
     while(True):
-        #update_database.delete_old_matches()
+        update_database.delete_old_matches()
         update_database.upload_matches()
 
-'''
-    while(True):
-        today = datetime.date.today()
-        for i in range(1,7):
-            print(i)
-            print('----------------')
-            selectDate = today + datetime.timedelta(days=i)
-            scrapFlashscore.open_page_to_list_matches('https://www.flashscore.com/', selectDate, i, 10, 'Football')
-            scrapFlashscore.open_page_to_list_matches('https://www.flashscore.com/', selectDate, i, 10 , 'Basketball')
-    '''
 
 if __name__ == '__main__':
     background_thread = threading.Thread(target=background_task)

@@ -1,9 +1,11 @@
 import re
+from abc import ABC, abstractmethod
+
 import pandas as pd
 from sqlalchemy.orm import sessionmaker
 from models import engine
 
-class Match:
+class Match(ABC):
     def __init__(self, id):
         self.id = id
         self._name = None
@@ -33,16 +35,6 @@ class Match:
     @date.setter
     def date(self, val):
         self._date = val
-
-
-#    def _process_odds(self, odds_list):
-#        odds_list = list(filter(lambda x: x != '', odds_list))
-#        new_odds_list = []
-#        for k in range(len(odds_list)):
-#            odds_list[k] = re.findall(r'\d+\.\d+', odds_list[k])
-#            if len(odds_list[k]) > 1:
-#                new_odds_list.append(odds_list[k][1])
-#        return new_odds_list
 
     def _process_odds(self, odds_list):
         odds_list = list(filter(lambda x: x != '', odds_list))
@@ -92,6 +84,9 @@ class Match:
         df['URL'] = df['URL'].apply(lambda x: f'<a href="https://www.flashscore.com/match/{x}">{"Match Details"}</a>')
         return df.sort_values('Probability').head(amount)
 
+    @abstractmethod
+    def add_to_database(self):
+        pass
 
     def id_from_url(self):
         self.id_to_print = self.id[4:]
