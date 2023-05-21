@@ -17,8 +17,6 @@ from Sports.basketball import Basketball
 
 def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
 
-    Session = sessionmaker(bind=engine)
-    session = Session()
     op = webdriver.ChromeOptions()
     op.add_argument('--disable-images')
     op.add_argument('headless')
@@ -49,21 +47,23 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
     except:
         print('Failed to load matches')
     counter = 0
+    print(len(elements))
     #matches = []
     for element in elements:
         if counter >= amount:
             break
-        match, id_match = None, None
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        match, id_match, old_match = None, None, None
         try:
             id_match = element.get_attribute("id")
         except:
             print('Failed to get id matches')
-
         for val in SportEnum:
             if sport ==val.value:
                 match = val.sport_object(id_match)
-                db = val.getdb
-                session.query(db).filter(id_match == db.id_match).delete(synchronize_session=False)
+                session.query(val.db).filter(val.db.id_match == id_match).delete()
+                break
         match.date = selectDate
         try:
             browser.execute_script("arguments[0].click();", element)
@@ -72,13 +72,12 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
         browser.implicitly_wait(10)
         browser.switch_to.window(browser.window_handles[-1])
         browser.implicitly_wait(10)
-
         Odds_click = 0
+
         try:
             Odds_click = browser.find_elements(By.XPATH, "//*[contains(text(), 'Odds')]")
         except:
             print('There is no odds button')
-
         if len(Odds_click) > 1:
             try:
                 browser.execute_script("arguments[0].click();", Odds_click[0])
@@ -86,6 +85,7 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
                 print('Script cannot be executed')
         else:
             browser.switch_to.window(browser.window_handles[0])
+            session.commit()
             continue
         odds = browser.find_elements(By.CLASS_NAME, 'oddsCell__odd')
         match.match_name = browser.title
@@ -93,17 +93,14 @@ def open_page_to_list_matches(path, selectDate, deltaDate , amount, sport ):
         for odd in odds:
             match.sequence_on_page(mod_, odd.text)
             mod_ +=1
-        #match.convert_string_odds_to_array()
         match.set_probabilities()
         session.add(match.add_to_database())
-       # matches.append(match)
-
         counter += 1
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
+        session.commit()
     browser.close()
-    session.commit()
-    #df = sports_dict[sport].createDataFrame(matches)
+
 
 
 def complete_parameters_match(sport):
